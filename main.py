@@ -1,43 +1,51 @@
-import cv2
-import argparse
-
 from ultralytics import YOLO
-import supervision as sv
+import cv2
+import math
 
-def parse_arguments() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description='YOLODrone')
-    parser.add_argument('--webcam-resolution', nargs=2, type=int, default=[1280,720])
-    args = parser.parse_args()
-    return args
+model = YOLO('yolo-Weights/yolov8n.pt')
 
-def main():
-    args = parse_arguments()
-    frame_width, frame_height = args.webcam_resolution
-    
-    cap = cv2.VideoCapture(0)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, frame_width)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, frame_height)
+classNames = ["person", "bicycle", "car", "motorbike", "aeroplane", "bus", "train", "truck", "boat",
+              "traffic light", "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat",
+              "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella",
+              "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sports ball", "kite", "baseball bat",
+              "baseball glove", "skateboard", "surfboard", "tennis racket", "bottle", "wine glass", "cup",
+              "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange", "broccoli",
+              "carrot", "hot dog", "pizza", "donut", "cake", "chair", "sofa", "pottedplant", "bed",
+              "diningtable", "toilet", "tvmonitor", "laptop", "mouse", "remote", "keyboard", "cell phone",
+              "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors",
+              "teddy bear", "hair drier", "toothbrush"
+              ]
 
-    model = YOLO('yolov8l.pt')  
+cap = cv2.VideoCapture(0)
+cap.set(3,640)
+cap.set(4,480)
 
-    box_annotator = sv.BoxAnnotator(
-        thickness=2,
-        text_thickness=2,
-        text_scale=1
-    )
+while True:
+    ret, img = cap.read()
+    results = model(img, stream=True)
 
-    while True:
-        ret, frame = cap.read()
+    for r in results:
+        boxes = r.boxes
 
-        result = model(frame)[0]
-        detections = sv.Detections.from_yolov8(result)
+        for box in boxes:
+            x1, y1, x2, y2 = box.xyxy[0]
+            x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
 
-        frame = box_annotator.annotate(scene=frame, detections=detections)
+            cv2.rectangle(img, (x1,y1), (x2,y2), (255,0,255), 3)
 
-        cv2.imshow('yolov8', frame)
+            conf = math.ceil((box.conf[0]*100))/100
+            cls = int(box.cls[0])
 
-        if(cv2.waitKey(30) == 27):
-            break
+            org = [x1,y1]
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            fontScale = 1
+            color = (255, 0, 0)
+            thickness = 2
+            cv2.putText(img, classNames[cls], org, font, fontScale, color, thickness)
 
-if __name__=='__main__':
-    main()
+    cv2.imshow('Webcam', img)
+    if cv2.waitKey(30) == 27:
+        break
+
+cap.release()
+cv2.destroyAllWindows()
